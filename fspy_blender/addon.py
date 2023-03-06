@@ -70,16 +70,14 @@ class ImportfSpyProject(Operator, ImportHelper):
         Finds or creates a suitable camera and sets its parameters
         """
 
-        # Is there already a camera with the same name as the project?
-        camera_name = project.file_name
         existing_camera = None
+        camera_name = project.file_name
         try:
             existing_camera = bpy.data.objects[camera_name]
             if existing_camera.type != 'CAMERA':
-                raise Exception((
-                    "There is already an object named '" + camera_name + "' "
-                    "that is not a camera. Rename or remove it and try again."
-                ))
+                raise Exception(
+                    f"There is already an object named '{camera_name}' that is not a camera. Rename or remove it and try again."
+                )
         except KeyError:
             # No existing object matching the camera name
             pass
@@ -135,68 +133,68 @@ class ImportfSpyProject(Operator, ImportHelper):
     def set_up_3d_area(self, project, camera, update_existing_camera, set_background_image):
         # Find the first 3D view area and set its background image
         for area in bpy.context.screen.areas:
-          if area.type == 'VIEW_3D':
-            space_data = area.spaces.active
+            if area.type == 'VIEW_3D':
+                space_data = area.spaces.active
 
-            # Show background images
-            if hasattr(space_data, 'show_background_images'):
-                space_data.show_background_images = True
-            else:
-                #2.8
-                camera.data.show_background_images = True
+                # Show background images
+                if hasattr(space_data, 'show_background_images'):
+                    space_data.show_background_images = True
+                else:
+                    #2.8
+                    camera.data.show_background_images = True
 
-            # Make the calibrated camera the active camera
-            space_data.camera = camera
-            space_data.region_3d.view_perspective = 'CAMERA'
+                # Make the calibrated camera the active camera
+                space_data.camera = camera
+                space_data.region_3d.view_perspective = 'CAMERA'
 
-            if set_background_image:
-                # In Blender 2.8+, the background images are associated with the camera and not the 3D view
-                background_images = camera.data.background_images if hasattr(camera.data, 'background_images') else space_data.background_images
+                if set_background_image:
+                    # In Blender 2.8+, the background images are associated with the camera and not the 3D view
+                    background_images = camera.data.background_images if hasattr(camera.data, 'background_images') else space_data.background_images
 
-                # Setting background image has been requested.
-                # First, hide all existing bg images
-                for bg_image in background_images:
-                    bg_image.show_background_image = False
-
-                bg = None
-                if update_existing_camera:
-                    # Try to find an existing bg image slot matching the project name
+                    # Setting background image has been requested.
+                    # First, hide all existing bg images
                     for bg_image in background_images:
-                        if bg_image.image:
-                            if bg_image.image.name == camera.name:
+                        bg_image.show_background_image = False
+
+                    bg = None
+                    if update_existing_camera:
+                                        # Try to find an existing bg image slot matching the project name
+                        for bg_image in background_images:
+                            if (
+                                bg_image.image
+                                and bg_image.image.name == camera.name
+                            ):
                                 bpy.data.images.remove(bg_image.image)
                                 bg_image.image = None
                                 bg = bg_image
                                 break
-                if not bg:
-                    # No existin background image slot. Create one
-                    bg = background_images.new()
+                    if not bg:
+                        # No existin background image slot. Create one
+                        bg = background_images.new()
 
-                # Make sure the background image slot is visible
-                bg.show_background_image = True
+                    # Make sure the background image slot is visible
+                    bg.show_background_image = True
 
-                if hasattr(bg, 'view_axis'):
-                    # only show the background image when looking through the camera (< 2.8)
-                    bg.view_axis = 'CAMERA'
+                    if hasattr(bg, 'view_axis'):
+                        # only show the background image when looking through the camera (< 2.8)
+                        bg.view_axis = 'CAMERA'
 
-                # Write project image data to a temp file
-                tmp_dir = bpy.app.tempdir
-                tmp_filename = "fspy-temp-image-" + uuid.uuid4().hex
-                tmp_path = os.path.join(tmp_dir, tmp_filename)
-                tmp_file = open(tmp_path, 'wb')
-                tmp_file.write(project.image_data)
-                tmp_file.close()
+                    # Write project image data to a temp file
+                    tmp_dir = bpy.app.tempdir
+                    tmp_filename = f"fspy-temp-image-{uuid.uuid4().hex}"
+                    tmp_path = os.path.join(tmp_dir, tmp_filename)
+                    with open(tmp_path, 'wb') as tmp_file:
+                        tmp_file.write(project.image_data)
+                    # Load background image data from temp file
+                    img = bpy.data.images.load(tmp_path)
+                    img.name = project.file_name
+                    img.pack()
+                    bg.image = img
 
-                # Load background image data from temp file
-                img = bpy.data.images.load(tmp_path)
-                img.name = project.file_name
-                img.pack()
-                bg.image = img
+                    # Remove temp file
+                    os.remove(tmp_path)
 
-                # Remove temp file
-                os.remove(tmp_path)
-
-            break # only set up one 3D area
+                break # only set up one 3D area
 
     def set_reference_distance_unit(self, project, camera):
         scene = bpy.context.scene
@@ -262,8 +260,8 @@ class ImportfSpyProject(Operator, ImportHelper):
             self.set_render_resolution(project)
             self.set_up_3d_area(project, camera, update_existing_camera, set_background_image)
             self.set_reference_distance_unit(project, camera)
-            self.report({ 'INFO' }, "Finished setting up camera '" + project.file_name + "'")
+            self.report({ 'INFO' }, f"Finished setting up camera '{project.file_name}'")
             return {'FINISHED'}
         except fspy.ParsingError as e:
-            self.report({ 'ERROR' }, 'fSpy import error: ' + str(e))
+            self.report({ 'ERROR' }, f'fSpy import error: {str(e)}')
             return {'CANCELLED'}
