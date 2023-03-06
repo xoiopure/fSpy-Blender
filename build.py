@@ -4,19 +4,17 @@ import zipfile
 
 src_dir_name = 'fspy_blender'
 init_file_path = os.path.join(src_dir_name, '__init__.py')
-init_file = open(init_file_path)
-version_parts = []
-for line in init_file.readlines():
-    if '"version":' in line:
-        version_string = line.split("(")[1]
-        version_string = version_string.split(")")[0]
-        version_parts = version_string.split(",")
-        version_parts = map(str.strip, version_parts)
-        break
-init_file.close()
-
+with open(init_file_path) as init_file:
+    version_parts = []
+    for line in init_file:
+        if '"version":' in line:
+            version_string = line.split("(")[1]
+            version_string = version_string.split(")")[0]
+            version_parts = version_string.split(",")
+            version_parts = map(str.strip, version_parts)
+            break
 if len(version_parts) == 0:
-    raise "Could not extract version number from " + init_file_path
+    raise f"Could not extract version number from {init_file_path}"
 
 dist_archive_name = "fSpy-Blender-" + ".".join(version_parts) + ".zip"
 
